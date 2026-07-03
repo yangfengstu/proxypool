@@ -61,7 +61,7 @@ func (c *PreCheckConfig) applyDefaults() {
 
 // preCheckProxies 预检代理列表
 func (p *Pool) preCheckProxies(proxies []Proxy) []Proxy {
-	if !p.config.PreCheck.Enabled {
+	if !p.isPreCheckEnabled() {
 		return proxies
 	}
 
@@ -69,7 +69,7 @@ func (p *Pool) preCheckProxies(proxies []Proxy) []Proxy {
 		return proxies
 	}
 
-	p.logf("Pre-checking %d proxies with %d workers...", len(proxies), p.config.PreCheck.Concurrency)
+	p.logf("Pre-checking %d proxies with %d workers...", len(proxies), p.getPreCheckConcurrency())
 	startTime := time.Now()
 
 	// 创建工作池
@@ -78,7 +78,7 @@ func (p *Pool) preCheckProxies(proxies []Proxy) []Proxy {
 
 	// 启动workers
 	var wg sync.WaitGroup
-	for i := 0; i < p.config.PreCheck.Concurrency; i++ {
+	for i := 0; i < p.getPreCheckConcurrency(); i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
@@ -129,10 +129,10 @@ func (p *Pool) preCheckProxies(proxies []Proxy) []Proxy {
 		}
 
 		// 检查延迟
-		if result.Latency > p.config.PreCheck.MaxLatency {
+		if result.Latency > p.getPreCheckMaxLatency() {
 			stats.slow++
 			p.logf("  ✗ %s:%d - Too slow: %v (max: %v)",
-				result.Proxy.Host, result.Proxy.Port, result.Latency, p.config.PreCheck.MaxLatency)
+				result.Proxy.Host, result.Proxy.Port, result.Latency, p.getPreCheckMaxLatency())
 			continue
 		}
 

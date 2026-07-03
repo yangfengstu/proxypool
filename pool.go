@@ -14,9 +14,10 @@ import (
 
 // Pool 代理池
 type Pool struct {
-	config   Config
-	provider Provider
-	logger   Logger
+	config        Config
+	dynamicConfig *DynamicConfig // 动态配置（可实时变更）
+	provider      Provider
+	logger        Logger
 
 	// 代理客户端
 	mu         sync.RWMutex
@@ -64,11 +65,12 @@ func New(cfg Config) (*Pool, error) {
 	}
 
 	pool := &Pool{
-		config:    cfg,
-		provider:  cfg.Provider,
-		logger:    cfg.Logger,
-		proxies:   make([]*proxyClient, 0, cfg.TargetSize),
-		closeChan: make(chan struct{}),
+		config:        cfg,
+		dynamicConfig: newDynamicConfig(cfg),
+		provider:      cfg.Provider,
+		logger:        cfg.Logger,
+		proxies:       make([]*proxyClient, 0, cfg.TargetSize),
+		closeChan:     make(chan struct{}),
 	}
 
 	// 初始化：并发快速拉取代理
@@ -162,7 +164,7 @@ func (p *Pool) GetWithContext(ctx context.Context) (*req.Client, *Proxy, error) 
 	now := time.Now()
 
 	for _, pc := range p.proxies {
-		if now.Before(pc.ExpireAt) && pc.consecutiveFails < p.config.MaxConsecutiveFails {
+		if now.Before(pc.ExpireAt) && pc.consecutiveFails < p.getMaxConsecutiveFails() {
 			available = append(available, pc)
 		}
 	}
@@ -311,7 +313,7 @@ func (p *Pool) Stats() Stats {
 		pc.mu.Lock()
 
 		if now.Before(pc.ExpireAt) {
-			if pc.consecutiveFails < p.config.MaxConsecutiveFails && pc.healthScore >= p.config.MinHealthScore {
+			if pc.consecutiveFails < p.getMaxConsecutiveFails() && pc.healthScore >= p.getMinHealthScore() {
 				stats.Available++
 			} else {
 				stats.Unhealthy++
@@ -343,8 +345,8 @@ func (p *Pool) Stats() Stats {
 	}
 
 	// 计算利用率
-	if p.config.TargetSize > 0 {
-		stats.Utilization = float64(stats.Available) / float64(p.config.TargetSize)
+	if p.getTargetSize() > 0 {
+		stats.Utilization = float64(stats.Available) / float64(p.getTargetSize())
 	}
 
 	// 最后操作时间

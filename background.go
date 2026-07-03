@@ -43,7 +43,7 @@ func (p *Pool) checkAndRefresh() {
 	expiringSoon := 0
 
 	for _, pc := range p.proxies {
-		if now.Before(pc.ExpireAt) && pc.consecutiveFails < p.config.MaxConsecutiveFails {
+		if now.Before(pc.ExpireAt) && pc.consecutiveFails < p.getMaxConsecutiveFails() {
 			available++
 
 			// 统计即将过期的（在刷新窗口内）
@@ -60,9 +60,9 @@ func (p *Pool) checkAndRefresh() {
 	reason := ""
 
 	// 场景1：可用数量低于低水位（紧急）
-	lowWaterCount := int(float64(p.config.TargetSize) * p.config.LowWatermark)
+	lowWaterCount := int(float64(p.getTargetSize()) * p.getLowWatermark())
 	if available < lowWaterCount {
-		needed = p.config.TargetSize - available
+		needed = p.getTargetSize() - available
 		reason = "URGENT: low available"
 	}
 
@@ -73,7 +73,7 @@ func (p *Pool) checkAndRefresh() {
 	}
 
 	// 场景3：预防性维持高水位
-	highWaterCount := int(float64(p.config.TargetSize) * p.config.HighWatermark)
+	highWaterCount := int(float64(p.getTargetSize()) * p.getHighWatermark())
 	if needed == 0 && available < highWaterCount {
 		needed = highWaterCount - available
 		reason = "MAINTAIN: high watermark"
@@ -81,7 +81,7 @@ func (p *Pool) checkAndRefresh() {
 
 	if needed > 0 {
 		p.logf("Refresh triggered: %s, fetching %d proxies (available: %d, expiring soon: %d, target: %d)",
-			reason, needed, available, expiringSoon, p.config.TargetSize)
+			reason, needed, available, expiringSoon, p.getTargetSize())
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		p.fetchAndAdd(ctx, needed)
@@ -126,13 +126,13 @@ func (p *Pool) pruneUnhealthyProxies() {
 		}
 
 		// 2. 健康评分过低
-		if !shouldRemove && pc.healthScore < p.config.MinHealthScore {
+		if !shouldRemove && pc.healthScore < p.getMinHealthScore() {
 			shouldRemove = true
 			p.logf("Remove proxy %s: low health score %.2f", pc.Proxy.Host, pc.healthScore)
 		}
 
 		// 3. 连续失败超限
-		if !shouldRemove && pc.consecutiveFails >= p.config.MaxConsecutiveFails {
+		if !shouldRemove && pc.consecutiveFails >= p.getMaxConsecutiveFails() {
 			shouldRemove = true
 			p.logf("Remove proxy %s: consecutive fails %d", pc.Proxy.Host, pc.consecutiveFails)
 		}
@@ -140,7 +140,7 @@ func (p *Pool) pruneUnhealthyProxies() {
 		// 4. 失败率过高
 		if !shouldRemove && pc.useCount >= 10 {
 			failRate := float64(pc.failCount) / float64(pc.useCount)
-			if failRate > p.config.MaxFailRate {
+			if failRate > p.getMaxFailRate() {
 				shouldRemove = true
 				p.logf("Remove proxy %s: high fail rate %.2f", pc.Proxy.Host, failRate)
 			}

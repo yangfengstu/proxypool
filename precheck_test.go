@@ -128,14 +128,3 @@ func TestPreCheckConfig_Defaults(t *testing.T) {
 }
 
 // testLogger 测试用的日志实现
-type testLogger struct {
-	t *testing.T
-}
-
-func (l *testLogger) Printf(format string, v ...interface{}) {
-	l.t.Logf(format, v...)
-}
-
-func (l *testLogger) Errorf(format string, v ...interface{}) {
-	l.t.Errorf(format, v...)
-}
