@@ -1,121 +1,238 @@
-# ProxyPool - 通用HTTP代理池
+# ProxyPool
 
-一个高性能、易用的Go语言代理池库，基于 [req/v3](https://github.com/imroc/req) 构建。
+通用HTTP代理池 - 支持任意代理商，基于 [req/v3](https://github.com/imroc/req) 构建
 
-## ✨ 特性
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue)](https://golang.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-- 🚀 **开箱即用** - 零配置启动，合理的默认值
+## ✨ 核心特性
+
+- 🚀 **极简配置** - 只需提取链接，无需复杂参数
 - 🔌 **可插拔** - 通过Provider接口对接任何代理商
 - 🔄 **自动管理** - 自动刷新、过期检测、健康检查
+- 🧪 **代理预检** - 进入池前并发检测，确保100%可用
 - 📊 **完整监控** - 详细的统计信息和健康度评分
 - 🎯 **多种策略** - 轮询、最少使用、随机、按健康度加权
 - ⚡ **高性能** - 连接复用、并发拉取、智能选择
-- 🔧 **高度可配** - 所有参数都可配置
+- 🔧 **高度可配** - 20+配置参数，所有行为可控
 
-## 🎯 支持的代理类型
+## 📦 已集成的代理商
 
-- ✅ SOCKS5
-- ✅ HTTP
-- ✅ HTTPS
+- ✅ **IP赞** (ipzan.com) - SOCKS5/HTTP
+- ✅ **51代理** (51daili.com) - SOCKS5/HTTP
+- ✅ 更多代理商可通过实现Provider接口集成
 
-## 📦 安装
+## 🚀 快速开始
+
+### 安装
 
 ```bash
 go get github.com/yourusername/proxypool
 ```
 
-## 🚀 快速开始
-
-### 基础使用
+### 使用IP赞
 
 ```go
 package main
 
 import (
-    "fmt"
     "github.com/yourusername/proxypool"
+    "github.com/yourusername/proxypool/providers"
 )
 
 func main() {
-    // 1. 创建代理提供商（实现Provider接口）
-    provider := NewYourProvider()
+    // 1. 创建Provider（只需提取链接）
+    provider, _ := providers.NewIPZanProvider(providers.IPZanConfig{
+        ExtractURL: "你的IP赞完整提取链接",
+    })
     
     // 2. 创建代理池
-    pool, err := proxypool.New(proxypool.Config{
+    pool, _ := proxypool.New(proxypool.Config{
         Provider:   provider,
-        TargetSize: 100,  // 维持100个代理
+        TargetSize: 100,
+        
+        // 🆕 启用预检（推荐）
+        PreCheck: proxypool.PreCheckConfig{
+            Enabled:    true,
+            MaxLatency: 3 * time.Second,
+        },
     })
-    if err != nil {
-        panic(err)
-    }
     defer pool.Close()
     
-    // 3. 获取代理客户端（返回的是req.Client）
-    client, proxy, err := pool.Get()
-    if err != nil {
-        panic(err)
-    }
+    // 3. 获取代理并使用
+    client, proxy, _ := pool.Get()
+    resp, _ := client.R().Get("https://api.example.com")
     
-    fmt.Printf("Using proxy: %s\n", proxy.URL())
-    
-    // 4. 直接使用req/v3的所有方法
-    resp, err := client.R().
-        SetHeader("User-Agent", "Mozilla/5.0").
-        Get("https://api.ipify.org?format=json")
-    
-    if err != nil {
-        // 可选：报告失败
-        pool.ReportFailure(proxy, err)
-        panic(err)
-    }
-    
-    // 可选：报告成功
+    // 4. 反馈结果（可选，帮助池优化）
     pool.ReportSuccess(proxy, resp.TotalTime())
-    
-    fmt.Println(resp.String())
 }
 ```
 
-### 实现Provider接口
+### 使用51代理
 
 ```go
-package main
+provider, _ := providers.NewDaili51Provider(providers.Daili51Config{
+    ExtractURL: "你的51代理完整提取链接",
+})
 
-import (
-    "context"
-    "time"
-    "github.com/yourusername/proxypool"
-)
+pool, _ := proxypool.New(proxypool.Config{
+    Provider:   provider,
+    TargetSize: 100,
+})
+```
 
-// MyProvider 自定义代理提供商
-type MyProvider struct {
-    apiKey string
+## 🆕 代理预检功能
+
+**确保进入池子的代理100%可用！**
+
+```go
+PreCheck: proxypool.PreCheckConfig{
+    Enabled:         true,                // 启用预检
+    Timeout:         5 * time.Second,     // 预检超时
+    MaxLatency:      3 * time.Second,     // 最大允许延迟
+    Concurrency:     10,                  // 并发worker数
+    RequireRealIP:   true,                // 要求检测到真实IP
+    MinSuccessCount: 1,                   // 最少成功次数
 }
+```
 
-func NewMyProvider(apiKey string) *MyProvider {
-    return &MyProvider{apiKey: apiKey}
+**预检会自动：**
+- ✅ 并发检测每个代理的连通性
+- ✅ 获取真实出口IP地址
+- ✅ 测量实际响应延迟
+- ✅ 剔除响应过慢的代理
+
+详细说明见：[PRECHECK_GUIDE.md](PRECHECK_GUIDE.md)
+
+## 🔧 完整配置
+
+```go
+pool, _ := proxypool.New(proxypool.Config{
+    // 必需
+    Provider: provider,
+    
+    // 池大小管理
+    TargetSize:    300,   // 目标池大小
+    LowWatermark:  0.7,   // 低于70%触发紧急补充
+    HighWatermark: 0.9,   // 预防性维持在90%
+    
+    // 选择策略
+    SelectStrategy: proxypool.WeightedByHealth,  // 优先选择健康代理
+    
+    // HTTP客户端
+    EnableKeepAlive:     true,              // 启用连接复用
+    MaxIdleConns:        100,               // 全局空闲连接数
+    MaxIdleConnsPerHost: 10,                // 每个host空闲连接数
+    IdleConnTimeout:     90 * time.Second,  // 空闲连接超时
+    
+    // 预检（推荐）
+    PreCheck: proxypool.PreCheckConfig{
+        Enabled:    true,
+        MaxLatency: 3 * time.Second,
+    },
+    
+    // 健康检查
+    HealthCheck:         true,
+    HealthCheckURL:      "https://api.ipify.org",
+    MinHealthScore:      0.3,
+    MaxConsecutiveFails: 5,
+})
+```
+
+## 📊 使用req/v3的所有功能
+
+返回的是完全配置好的 `req.Client`，支持所有req/v3方法：
+
+```go
+client, _, _ := pool.Get()
+
+// 基础请求
+client.R().Get(url)
+
+// 设置Headers
+client.R().
+    SetHeader("User-Agent", "MyApp").
+    SetHeader("Authorization", "Bearer token").
+    Get(url)
+
+// POST JSON
+client.R().
+    SetBodyJsonMarshal(map[string]interface{}{
+        "key": "value",
+    }).
+    Post(url)
+
+// 文件上传
+client.R().
+    SetFile("file", "/path/to/file").
+    Post(url)
+
+// 自动解析JSON
+var result struct {
+    IP string `json:"ip"`
+}
+client.R().
+    SetSuccessResult(&result).
+    Get("https://api.ipify.org?format=json")
+
+// 更多用法请参考 req/v3 文档
+```
+
+## 📈 监控统计
+
+```go
+stats := pool.Stats()
+
+fmt.Printf("Total: %d\n", stats.Total)
+fmt.Printf("Available: %d (%.2f%%)\n", stats.Available, stats.Utilization*100)
+fmt.Printf("Success Rate: %.2f%%\n", 
+    float64(stats.TotalSuccess)/float64(stats.TotalRequests)*100)
+
+// 查看预检结果
+for _, ps := range stats.ProxyStats {
+    latency := ps.Proxy.Metadata["precheck_latency"]
+    realIP := ps.Proxy.Metadata["precheck_real_ip"]
+    fmt.Printf("Proxy: %s, Latency: %s, IP: %s\n", 
+        ps.Proxy.Host, latency, realIP)
+}
+```
+
+## 🧪 测试
+
+```bash
+# 单元测试
+go test -v
+
+# Live测试（需要真实提取链接）
+go run cmd/live_test/main.go \
+  -provider=ipzan \
+  -url='你的提取链接' \
+  -count=5
+
+# 预检示例
+go run examples/precheck/main.go
+```
+
+## 📚 文档
+
+- [PRECHECK_GUIDE.md](PRECHECK_GUIDE.md) - 代理预检功能指南
+- [LIVE_TEST.md](LIVE_TEST.md) - Live测试指南
+- [HOW_TRANSPARENT_WORKS.md](HOW_TRANSPARENT_WORKS.md) - 技术说明
+- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - 项目总结
+
+## 🎯 自定义Provider
+
+实现Provider接口即可对接任何代理商：
+
+```go
+type MyProvider struct {
+    extractURL string
 }
 
 func (p *MyProvider) Fetch(ctx context.Context, count int) ([]proxypool.Proxy, error) {
     // 1. 调用你的代理商API
-    // 2. 解析返回数据
-    // 3. 转换为标准Proxy结构
-    
-    proxies := make([]proxypool.Proxy, 0, count)
-    
-    // 示例：从你的API获取代理
-    for i := 0; i < count; i++ {
-        proxies = append(proxies, proxypool.Proxy{
-            Type:      proxypool.ProxyTypeSOCKS5,
-            Host:      "proxy.example.com",
-            Port:      1080,
-            Username:  "user",
-            Password:  "pass",
-            ExpiredAt: time.Now().Add(60 * time.Minute),  // 重要：设置过期时间
-        })
-    }
-    
-    return proxies, nil
+    // 2. 解析响应
+    // 3. 返回Proxy切片（包含ExpiredAt字段）
 }
 
 func (p *MyProvider) Name() string {
@@ -123,237 +240,32 @@ func (p *MyProvider) Name() string {
 }
 ```
 
-## 🔧 配置选项
+## 🌟 设计亮点
 
-### 完整配置示例
-
+### 1. 极简配置
+只需提取链接，无需解析参数：
 ```go
-pool, _ := proxypool.New(proxypool.Config{
-    // ========== 必需配置 ==========
-    Provider: myProvider,
-    
-    // ========== 池大小管理 ==========
-    TargetSize:    300,   // 目标池大小
-    LowWatermark:  0.7,   // 低于70%触发紧急补充
-    HighWatermark: 0.9,   // 预防性维持在90%
-    
-    // ========== 启动配置 ==========
-    StartupBatchSize:   50,  // 启动时每批大小
-    StartupConcurrency: 6,   // 启动时并发批次数
-    
-    // ========== 运行时刷新 ==========
-    RefreshWindow: 15 * time.Minute,  // 提前15分钟补充即将过期的代理
-    RefreshBatch:  20,                // 运行时每批补充数量
-    
-    // ========== 选择策略 ==========
-    SelectStrategy: proxypool.WeightedByHealth,  // 优先选择健康代理
-    
-    // ========== HTTP客户端配置 ==========
-    EnableKeepAlive:     true,              // 启用连接复用（推荐）
-    MaxIdleConns:        100,               // 全局空闲连接数
-    MaxIdleConnsPerHost: 10,                // 每个host空闲连接数
-    IdleConnTimeout:     90 * time.Second,  // 空闲连接超时
-    Timeout:             5 * time.Second,   // 请求超时
-    
-    // ========== 健康检查 ==========
-    HealthCheck:         true,
-    HealthCheckURL:      "https://api.ipify.org",
-    HealthCheckInterval: 5 * time.Minute,
-    MinHealthScore:      0.3,  // 低于此评分剔除
-    MaxConsecutiveFails: 5,    // 连续失败5次剔除
-    MaxFailRate:         0.8,  // 失败率超过80%剔除
-    
-    // ========== 日志 ==========
-    Logger: myLogger,  // 实现Logger接口
+provider, _ := providers.NewIPZanProvider(providers.IPZanConfig{
+    ExtractURL: "完整提取链接",  // 一行配置！
 })
 ```
 
-### 选择策略说明
+### 2. 零成本抽象
+直接返回`*req.Client`，不包装：
+- req/v3所有方法天然可用
+- 无性能损失
+- 未来兼容
 
-```go
-// 轮询（默认）
-SelectStrategy: proxypool.RoundRobin
-
-// 最少使用（负载均衡）
-SelectStrategy: proxypool.LeastUsed
-
-// 随机
-SelectStrategy: proxypool.Random
-
-// 按健康度加权（推荐）
-SelectStrategy: proxypool.WeightedByHealth
-```
-
-## 📊 监控统计
-
-```go
-// 获取统计信息
-stats := pool.Stats()
-
-fmt.Printf("Total: %d\n", stats.Total)
-fmt.Printf("Available: %d\n", stats.Available)
-fmt.Printf("Utilization: %.2f%%\n", stats.Utilization*100)
-fmt.Printf("Success Rate: %.2f%%\n", 
-    float64(stats.TotalSuccess)/float64(stats.TotalRequests)*100)
-
-// 查看每个代理的详细统计
-for _, ps := range stats.ProxyStats {
-    fmt.Printf("Proxy %s: UseCount=%d, SuccessRate=%.2f%%, HealthScore=%.2f\n",
-        ps.Proxy.Host,
-        ps.UseCount,
-        float64(ps.SuccessCount)/float64(ps.UseCount)*100,
-        ps.HealthScore)
-}
-```
-
-## 🎯 使用req/v3的所有功能
-
-代理池返回的是完全配置好的 `req.Client`，你可以使用req/v3的所有方法：
-
-```go
-client, proxy, _ := pool.Get()
-
-// 1. 基础请求
-resp, _ := client.R().Get("https://api.example.com")
-
-// 2. 设置Headers
-resp, _ := client.R().
-    SetHeader("User-Agent", "MyApp/1.0").
-    SetHeader("Authorization", "Bearer token").
-    Get(url)
-
-// 3. POST JSON
-resp, _ := client.R().
-    SetBodyJsonMarshal(map[string]interface{}{
-        "key": "value",
-    }).
-    Post(url)
-
-// 4. 文件上传
-resp, _ := client.R().
-    SetFile("file", "/path/to/file").
-    Post(url)
-
-// 5. 自动解析JSON响应
-var result struct {
-    IP string `json:"ip"`
-}
-resp, _ := client.R().
-    SetSuccessResult(&result).
-    Get("https://api.ipify.org?format=json")
-
-// 6. 流式下载
-resp, _ := client.R().
-    SetOutputFile("/path/to/save").
-    Get(url)
-
-// 7. 重试（如果需要）
-resp, _ := client.R().
-    SetRetryCount(3).
-    SetRetryBackoffInterval(1*time.Second, 5*time.Second).
-    Get(url)
-
-// 更多用法请参考 req/v3 文档
-```
-
-## 🔍 进阶用法
-
-### 失败反馈优化
-
-```go
-client, proxy, _ := pool.Get()
-
-start := time.Now()
-resp, err := client.R().Get(url)
-latency := time.Since(start)
-
-if err != nil {
-    // 报告失败，帮助池统计
-    pool.ReportFailure(proxy, err)
-    return err
-}
-
-if resp.StatusCode == 407 {
-    // 代理认证失败
-    pool.ReportFailure(proxy, fmt.Errorf("proxy auth failed"))
-    return fmt.Errorf("proxy error")
-}
-
-// 报告成功
-pool.ReportSuccess(proxy, latency)
-```
-
-### 手动刷新
-
-```go
-// 手动触发刷新
-ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-defer cancel()
-
-err := pool.Refresh(ctx)
-```
-
-### 自定义日志
-
-```go
-type MyLogger struct{}
-
-func (l *MyLogger) Printf(format string, v ...interface{}) {
-    log.Printf(format, v...)
-}
-
-func (l *MyLogger) Errorf(format string, v ...interface{}) {
-    log.Printf("ERROR: "+format, v...)
-}
-
-pool, _ := proxypool.New(proxypool.Config{
-    Provider: myProvider,
-    Logger:   &MyLogger{},
-})
-```
-
-## 📋 工作原理
-
-### 启动流程（1-2秒完成）
-
-```
-1. 并发拉取初始代理
-   ├─ 批次1: 拉取50个 (1.2秒)
-   ├─ 批次2: 拉取50个 (1.3秒)
-   └─ ...
-2. 添加到池中，立即可用
-```
-
-### 运行时维护
-
-```
-每1分钟：
-├─ 检查水位线
-├─ 可用数 < 70% → 紧急补充
-├─ 可用数 < 90% → 预防性补充
-└─ 即将过期 → 错峰补充
-
-每2分钟：
-├─ 计算健康评分
-├─ 剔除不健康代理
-└─ 触发补充
-```
-
-### 健康评分算法
-
-```
-健康评分 = 成功率×60% - 超时率×20% + 延迟评分×20%
-
-剔除条件：
-- 评分 < 0.3
-- 连续失败 >= 5次
-- 失败率 > 80%
-```
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
+### 3. 智能管理
+- 启动：1-2秒并发打满池子
+- 运行：水位线自动维持（70%-90%）
+- 预检：并发检测，确保质量
+- 剔除：健康评分<0.3自动移除
 
 ## 📄 License
 
 MIT License
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
