@@ -116,6 +116,9 @@ type Config struct {
 
 	// ========== 日志配置 ==========
 	Logger Logger // 自定义日志接口，默认nil（不输出）
+
+	// ========== 预检配置 ==========
+	PreCheck PreCheckConfig // 代理预检配置
 }
 
 // Logger 日志接口，允许用户自定义日志实现

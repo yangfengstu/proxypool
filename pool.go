@@ -373,6 +373,11 @@ func (p *Pool) Close() error {
 
 // addProxies 添加代理到池中
 func (p *Pool) addProxies(proxies []Proxy) {
+	// 预检（如果启用）
+	if p.config.PreCheck.Enabled {
+		proxies = p.preCheckProxies(proxies)
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
