@@ -328,6 +328,16 @@ func (p *Pool) Stats() Stats {
 			avgLatency = pc.totalLatency / time.Duration(pc.useCount)
 		}
 
+		// 获取真实出口IP
+		realExitIP := pc.Proxy.Metadata["precheck_real_ip"]
+		if realExitIP == "" {
+			realExitIP = pc.Proxy.Metadata["first_use_exit_ip"]
+		}
+
+		// 计算过期信息
+		isExpired := now.After(pc.ExpireAt)
+		timeToExpire := pc.ExpireAt.Sub(now)
+
 		stats.ProxyStats = append(stats.ProxyStats, ProxyStats{
 			Proxy:            pc.Proxy,
 			UseCount:         pc.useCount,
@@ -339,6 +349,9 @@ func (p *Pool) Stats() Stats {
 			LastFailed:       pc.lastFailed,
 			AvgLatency:       avgLatency,
 			ConsecutiveFails: pc.consecutiveFails,
+			RealExitIP:       realExitIP,
+			IsExpired:        isExpired,
+			TimeToExpire:     timeToExpire,
 		})
 
 		pc.mu.Unlock()

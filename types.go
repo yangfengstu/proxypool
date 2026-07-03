@@ -148,16 +148,21 @@ type Stats struct {
 
 // ProxyStats 单个代理的统计信息
 type ProxyStats struct {
-	Proxy          Proxy
-	UseCount       int64
-	SuccessCount   int64
-	FailCount      int64
-	TimeoutCount   int64
-	HealthScore    float64
-	LastUsed       time.Time
-	LastFailed     time.Time
-	AvgLatency     time.Duration
+	Proxy            Proxy
+	UseCount         int64
+	SuccessCount     int64
+	FailCount        int64
+	TimeoutCount     int64
+	HealthScore      float64
+	LastUsed         time.Time
+	LastFailed       time.Time
+	AvgLatency       time.Duration
 	ConsecutiveFails int
+
+	// 🆕 额外信息
+	RealExitIP   string        // 真实出口IP（来自预检或首次使用）
+	IsExpired    bool          // 是否已过期
+	TimeToExpire time.Duration // 距离过期的时间
 }
 
 // applyDefaults 应用默认配置
