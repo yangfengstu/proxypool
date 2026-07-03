@@ -161,14 +161,3 @@ func findSubstring(s, substr string) bool {
 	return false
 }
 
-type testLogger struct {
-	t *testing.T
-}
-
-func (l *testLogger) Printf(format string, v ...interface{}) {
-	l.t.Logf(format, v...)
-}
-
-func (l *testLogger) Errorf(format string, v ...interface{}) {
-	l.t.Errorf(format, v...)
-}
