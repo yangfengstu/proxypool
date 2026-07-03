@@ -98,14 +98,14 @@ func TestPool_ReportFailureAndSuccess(t *testing.T) {
 }
 
 func TestPool_SelectStrategies(t *testing.T) {
-	strategies := []proxypool.SelectStrategy{
-		proxypool.RoundRobin,
-		proxypool.LeastUsed,
-		proxypool.Random,
+	strategies := map[string]proxypool.SelectStrategy{
+		"RoundRobin": proxypool.RoundRobin,
+		"LeastUsed":  proxypool.LeastUsed,
+		"Random":     proxypool.Random,
 	}
 
-	for _, strategy := range strategies {
-		t.Run(strategy.String(), func(t *testing.T) {
+	for name, strategy := range strategies {
+		t.Run(name, func(t *testing.T) {
 			pool, err := proxypool.New(proxypool.Config{
 				Provider:       proxypool.NewExampleProvider(),
 				TargetSize:     5,
@@ -140,20 +140,4 @@ func (l *testLogger) Printf(format string, v ...interface{}) {
 
 func (l *testLogger) Errorf(format string, v ...interface{}) {
 	l.t.Errorf(format, v...)
-}
-
-// String 为SelectStrategy添加String方法（用于测试）
-func (s proxypool.SelectStrategy) String() string {
-	switch s {
-	case proxypool.RoundRobin:
-		return "RoundRobin"
-	case proxypool.LeastUsed:
-		return "LeastUsed"
-	case proxypool.Random:
-		return "Random"
-	case proxypool.WeightedByHealth:
-		return "WeightedByHealth"
-	default:
-		return "Unknown"
-	}
 }
