@@ -5,12 +5,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/yourusername/proxypool"
+	"github.com/yangfengstu/proxypool"
 )
 
 func main() {
 	fmt.Println("🔧 Dynamic Configuration Example")
-	fmt.Println("=================================\n")
+	fmt.Println("=================================")
+	fmt.Println()
 
 	// 创建代理池
 	pool, err := proxypool.New(proxypool.Config{
@@ -23,7 +24,8 @@ func main() {
 	}
 	defer pool.Close()
 
-	fmt.Println("✅ Pool created with initial config:\n")
+	fmt.Println("✅ Pool created with initial config:")
+	fmt.Println()
 	printConfig(pool.GetCurrentConfig())
 
 	// 等待一会儿

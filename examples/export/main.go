@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/yourusername/proxypool"
+	"github.com/yangfengstu/proxypool"
 )
 
 func main() {
 	fmt.Println("📊 Proxy Export & Logging Example")
-	fmt.Println("==================================\n")
+	fmt.Println("==================================")
+	fmt.Println()
 
 	// 创建代理池
 	pool, err := proxypool.New(proxypool.Config{
@@ -23,7 +24,8 @@ func main() {
 	defer pool.Close()
 
 	// 使用几个代理
-	fmt.Println("🔄 Using some proxies...\n")
+	fmt.Println("🔄 Using some proxies...")
+	fmt.Println()
 	for i := 0; i < 3; i++ {
 		client, proxy, _ := pool.Get()
 		fmt.Printf("[Request %d] Using: %s\n", i+1, proxy.SafeURL())

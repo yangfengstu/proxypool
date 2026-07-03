@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/yourusername/proxypool"
-	"github.com/yourusername/proxypool/providers"
+	"github.com/yangfengstu/proxypool"
+	"github.com/yangfengstu/proxypool/providers"
 )
 
 func main() {
@@ -19,7 +19,8 @@ func main() {
 	}
 
 	fmt.Println("🧪 Testing Proxy Pre-Check Feature")
-	fmt.Println("====================================\n")
+	fmt.Println("====================================")
+	fmt.Println()
 
 	// 创建代理池（启用预检）
 	pool, err := proxypool.New(proxypool.Config{
@@ -28,12 +29,12 @@ func main() {
 
 		// ✨ 启用预检
 		PreCheck: proxypool.PreCheckConfig{
-			Enabled:         true,                // 启用预检
-			Timeout:         5 * time.Second,     // 预检超时5秒
-			MaxLatency:      3 * time.Second,     // 最大延迟3秒
-			Concurrency:     5,                   // 5个并发worker
-			RequireRealIP:   true,                // 必须获取到真实IP
-			MinSuccessCount: 1,                   // 至少成功1次
+			Enabled:         true,            // 启用预检
+			Timeout:         5 * time.Second, // 预检超时5秒
+			MaxLatency:      3 * time.Second, // 最大延迟3秒
+			Concurrency:     5,               // 5个并发worker
+			RequireRealIP:   true,            // 必须获取到真实IP
+			MinSuccessCount: 1,               // 至少成功1次
 			// CheckURLs 使用默认列表
 		},
 

@@ -91,7 +91,7 @@ func TestPreCheck_IsValidIP(t *testing.T) {
 		{"abc", false},
 		{"1.2.3", false},
 		{"1.2.3.4.5", false},
-		{"256.1.1.1", false}, // 注意：这个简单验证会通过，实际应该用net.ParseIP
+		{"256.1.1.1", false},
 	}
 
 	for _, tt := range tests {

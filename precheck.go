@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -33,11 +34,11 @@ type PreCheckResult struct {
 
 // defaultCheckURLs 默认检测URL列表
 var defaultCheckURLs = []string{
-	"https://api.ipify.org?format=json",           // 主要
-	"https://ifconfig.me/ip",                      // 备用1
-	"https://api.myip.com",                        // 备用2
-	"https://checkip.amazonaws.com",               // 备用3 (返回纯文本)
-	"https://icanhazip.com",                       // 备用4 (返回纯文本)
+	"https://api.ipify.org?format=json", // 主要
+	"https://ifconfig.me/ip",            // 备用1
+	"https://api.myip.com",              // 备用2
+	"https://checkip.amazonaws.com",     // 备用3 (返回纯文本)
+	"https://icanhazip.com",             // 备用4 (返回纯文本)
 }
 
 // applyPreCheckDefaults 应用预检默认配置
@@ -104,12 +105,12 @@ func (p *Pool) preCheckProxies(proxies []Proxy) []Proxy {
 	// 收集结果
 	validProxies := make([]Proxy, 0, len(proxies))
 	var stats struct {
-		total    int
-		success  int
-		timeout  int
-		slow     int
-		noIP     int
-		other    int
+		total   int
+		success int
+		timeout int
+		slow    int
+		noIP    int
+		other   int
 	}
 
 	for result := range results {
@@ -272,34 +273,7 @@ func trimSpace(s string) string {
 	return s[start:end]
 }
 
-// isValidIP 简单验证IP格式
+// isValidIP 验证IP格式
 func isValidIP(s string) bool {
-	if len(s) < 7 || len(s) > 45 { // IPv4最短7字符(0.0.0.0)，IPv6最长45字符
-		return false
-	}
-
-	// 检查IPv4
-	dots := 0
-	colons := 0
-	for _, c := range s {
-		if c == '.' {
-			dots++
-		} else if c == ':' {
-			colons++
-		} else if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-			return false
-		}
-	}
-
-	// IPv4: 3个点
-	if dots == 3 && colons == 0 {
-		return true
-	}
-
-	// IPv6: 至少2个冒号
-	if colons >= 2 && dots == 0 {
-		return true
-	}
-
-	return false
+	return net.ParseIP(s) != nil
 }

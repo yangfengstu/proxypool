@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yourusername/proxypool"
+	"github.com/yangfengstu/proxypool"
 )
 
 func TestPool_Basic(t *testing.T) {

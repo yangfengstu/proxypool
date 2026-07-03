@@ -2,15 +2,21 @@ package providers
 
 import (
 	"context"
+	"fmt"
+	"net/url"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/yourusername/proxypool"
+	"github.com/yangfengstu/proxypool"
 )
 
 func TestDaili51Provider_Fetch(t *testing.T) {
+	extractURL := os.Getenv("DAILI51_EXTRACT_URL")
+	if extractURL == "" {
+		t.Skip("set DAILI51_EXTRACT_URL to run live provider fetch test")
+	}
 	// 使用示例提取链接（实际测试时需要真实的链接）
-	extractURL := "http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=2&format=json&field=ipport,expiretime,regioncode,isptype&ct=1&rid=mr4jlbsowa7t5f18vyqag&uid=48787&accessName=yangfengstu&accessPassword=60131029DC2A7C2F37F7396B9B4C698D"
 
 	provider, err := NewDaili51Provider(Daili51Config{
 		ExtractURL: extractURL,
@@ -19,12 +25,12 @@ func TestDaili51Provider_Fetch(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// 验证认证信息已提取
-	if provider.username != "yangfengstu" {
-		t.Errorf("Expected username 'yangfengstu', got '%s'", provider.username)
+	parsedExtractURL, _ := url.Parse(extractURL)
+	if want := parsedExtractURL.Query().Get("accessName"); want != "" && provider.username != want {
+		t.Errorf("Expected username %q, got %q", want, provider.username)
 	}
-	if provider.password != "60131029DC2A7C2F37F7396B9B4C698D" {
-		t.Errorf("Expected password '60131029DC2A7C2F37F7396B9B4C698D', got '%s'", provider.password)
+	if want := parsedExtractURL.Query().Get("accessPassword"); want != "" && provider.password != want {
+		t.Errorf("Expected password %q, got %q", want, provider.password)
 	}
 
 	// 拉取代理
@@ -152,9 +158,9 @@ func TestDaili51Provider_Protocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			url := fmt.Sprintf("http://capi.51daili.com/traffic/getip?port=%s&format=json&accessName=user&accessPassword=pass", tt.port)
+			rawURL := fmt.Sprintf("http://capi.51daili.com/traffic/getip?port=%s&format=json&accessName=user&accessPassword=pass", tt.port)
 			provider, _ := NewDaili51Provider(Daili51Config{
-				ExtractURL: url,
+				ExtractURL: rawURL,
 			})
 
 			// 通过解析URL验证协议类型判断逻辑

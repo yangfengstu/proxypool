@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/yourusername/proxypool"
+	"github.com/yangfengstu/proxypool"
 )
 
 func main() {

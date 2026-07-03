@@ -1,4 +1,4 @@
-module github.com/yourusername/proxypool
+module github.com/yangfengstu/proxypool
 
 go 1.21
 

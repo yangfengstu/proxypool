@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourusername/proxypool"
+	"github.com/yangfengstu/proxypool"
 )
 
 // Daili51Provider 51代理提供商

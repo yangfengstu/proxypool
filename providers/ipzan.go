@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourusername/proxypool"
+	"github.com/yangfengstu/proxypool"
 )
 
 // IPZanProvider IP赞代理提供商
@@ -44,9 +44,9 @@ type ipzanResponse struct {
 		List []struct {
 			IP       string `json:"ip"`
 			Port     string `json:"port"`
-			Expired  int64  `json:"expired"` // 过期时间戳（毫秒）
-			Net      string `json:"net"`     // 网络类型（电信、联通等）
-			Account  string `json:"account"` // 账号
+			Expired  int64  `json:"expired"`  // 过期时间戳（毫秒）
+			Net      string `json:"net"`      // 网络类型（电信、联通等）
+			Account  string `json:"account"`  // 账号
 			Password string `json:"password"` // 密码
 		} `json:"list"`
 	} `json:"data"`

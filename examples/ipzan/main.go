@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/yourusername/proxypool"
-	"github.com/yourusername/proxypool/providers"
+	"github.com/yangfengstu/proxypool"
+	"github.com/yangfengstu/proxypool/providers"
 )
 
 func main() {

@@ -2,21 +2,25 @@ package providers
 
 import (
 	"context"
+	"net/url"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/yourusername/proxypool"
+	"github.com/yangfengstu/proxypool"
 )
 
 func TestIPZanProvider_Fetch(t *testing.T) {
-	// 从环境变量读取配置（测试时需要设置）
-	// export IPZAN_NO="20241017192301118136"
-	// export IPZAN_SECRET="u0co3e3ea1e815o"
+	no := os.Getenv("IPZAN_NO")
+	secret := os.Getenv("IPZAN_SECRET")
+	if no == "" || secret == "" {
+		t.Skip("set IPZAN_NO and IPZAN_SECRET to run live provider fetch test")
+	}
 
 	// 使用示例配置（实际测试时需要真实的订单号和密钥）
 	provider, err := NewIPZanProvider(IPZanConfig{
-		No:       "20241017192301118136",
-		Secret:   "u0co3e3ea1e815o",
+		No:       no,
+		Secret:   secret,
 		Minute:   3,
 		Protocol: 3, // SOCKS5
 	})
@@ -67,10 +71,10 @@ func TestIPZanProvider_Fetch(t *testing.T) {
 
 func TestIPZanProvider_Config(t *testing.T) {
 	tests := []struct {
-		name      string
-		config    IPZanConfig
-		wantErr   bool
-		errMsg    string
+		name    string
+		config  IPZanConfig
+		wantErr bool
+		errMsg  string
 	}{
 		{
 			name: "valid config",
@@ -132,17 +136,15 @@ func TestIPZanProvider_Protocol(t *testing.T) {
 				Secret:   "test-secret",
 				Protocol: tt.protocol,
 			})
-
-			if provider.protocol == 0 {
-				provider.protocol = 3 // 应用默认值
-			}
+			parsedURL, _ := url.Parse(provider.baseURL)
+			protocol := parsedURL.Query().Get("protocol")
 
 			// 验证协议映射是否正确
 			var proxyType proxypool.ProxyType
-			switch provider.protocol {
-			case 1:
+			switch protocol {
+			case "1":
 				proxyType = proxypool.ProxyTypeHTTP
-			case 3:
+			case "3":
 				proxyType = proxypool.ProxyTypeSOCKS5
 			default:
 				proxyType = proxypool.ProxyTypeSOCKS5

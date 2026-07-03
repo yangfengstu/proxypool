@@ -58,7 +58,7 @@ func (p *Pool) Get() (*req.Client, *Proxy, error) {
 ```go
 package main
 
-import "github.com/yourusername/proxypool"
+import "github.com/yangfengstu/proxypool"
 
 func main() {
     pool, _ := proxypool.New(proxypool.Config{
@@ -133,7 +133,7 @@ package main
 
 import (
     "github.com/imroc/req/v3"
-    "github.com/yourusername/proxypool"
+    "github.com/yangfengstu/proxypool"
 )
 
 func main() {

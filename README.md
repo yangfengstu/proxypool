@@ -27,7 +27,7 @@
 ### 安装
 
 ```bash
-go get github.com/yourusername/proxypool
+go get github.com/yangfengstu/proxypool
 ```
 
 ### 使用IP赞
@@ -36,8 +36,8 @@ go get github.com/yourusername/proxypool
 package main
 
 import (
-    "github.com/yourusername/proxypool"
-    "github.com/yourusername/proxypool/providers"
+    "github.com/yangfengstu/proxypool"
+    "github.com/yangfengstu/proxypool/providers"
 )
 
 func main() {

@@ -7,15 +7,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/yourusername/proxypool"
-	"github.com/yourusername/proxypool/providers"
+	"github.com/yangfengstu/proxypool"
+	"github.com/yangfengstu/proxypool/providers"
 )
 
 var (
-	provider    = flag.String("provider", "", "Provider name: ipzan or daili51")
-	extractURL  = flag.String("url", "", "Extract URL from provider")
-	count       = flag.Int("count", 5, "Number of proxies to test")
-	testURL     = flag.String("test", "https://api.ipify.org?format=json", "URL to test proxies")
+	provider   = flag.String("provider", "", "Provider name: ipzan or daili51")
+	extractURL = flag.String("url", "", "Extract URL from provider")
+	count      = flag.Int("count", 5, "Number of proxies to test")
+	testURL    = flag.String("test", "https://api.ipify.org?format=json", "URL to test proxies")
 )
 
 func main() {
