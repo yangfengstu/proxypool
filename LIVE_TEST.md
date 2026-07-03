@@ -7,7 +7,7 @@
 ```bash
 cd /Users/leo/Workspace/apps/proxypool
 
-go run live_test.go \
+go run cmd/live_test/main.go \
   -provider=ipzan \
   -url='https://service.ipzan.com/core-extract?num=1&no=YOUR_NO&minute=3&format=json&protocol=3&pool=quality&mode=auth&secret=YOUR_SECRET' \
   -count=5
@@ -16,7 +16,7 @@ go run live_test.go \
 ### 51代理测试
 
 ```bash
-go run live_test.go \
+go run cmd/live_test/main.go \
   -provider=daili51 \
   -url='http://capi.51daili.com/traffic/getip?linePoolIndex=1&packid=12&time=11&qty=1&port=2&format=json&field=ipport,expiretime,regioncode,isptype&ct=1&rid=YOUR_RID&uid=YOUR_UID&accessName=YOUR_NAME&accessPassword=YOUR_PASSWORD' \
   -count=5
