@@ -180,3 +180,53 @@ func TestDaili51Provider_Protocol(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDaili51HostPort(t *testing.T) {
+	tests := []struct {
+		name     string
+		ip       string
+		port     string
+		wantHost string
+		wantPort int
+		wantOK   bool
+	}{
+		{
+			name:     "ipport in ip field",
+			ip:       "221.229.220.22:38792",
+			wantHost: "221.229.220.22",
+			wantPort: 38792,
+			wantOK:   true,
+		},
+		{
+			name:     "ip and port split",
+			ip:       "114.220.75.87",
+			port:     "44565",
+			wantHost: "114.220.75.87",
+			wantPort: 44565,
+			wantOK:   true,
+		},
+		{
+			name:   "missing port",
+			ip:     "114.220.75.87",
+			wantOK: false,
+		},
+		{
+			name:   "invalid port",
+			ip:     "114.220.75.87",
+			port:   "bad",
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			host, port, ok := parseDaili51HostPort(tt.ip, tt.port)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if host != tt.wantHost || port != tt.wantPort {
+				t.Fatalf("host/port = %s/%d, want %s/%d", host, port, tt.wantHost, tt.wantPort)
+			}
+		})
+	}
+}

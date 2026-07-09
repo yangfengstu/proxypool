@@ -72,17 +72,18 @@ type Config struct {
 	Provider Provider // 代理提供商（必需）
 
 	// ========== 池大小管理 ==========
-	TargetSize    int     // 目标池大小，默认100
-	LowWatermark  float64 // 低水位线（0-1），低于此比例触发紧急补充，默认0.7
-	HighWatermark float64 // 高水位线（0-1），预防性维持此比例，默认0.9
+	TargetSize    int     // 最小保有数量，默认100；不是最大容量限制
+	LowWatermark  float64 // 兼容字段，保留给调用方读取
+	HighWatermark float64 // 兼容字段，保留给调用方读取
 
 	// ========== 启动配置 ==========
 	StartupBatchSize   int // 启动时每批大小，默认20
 	StartupConcurrency int // 启动时并发批次数，默认5（TargetSize/StartupBatchSize）
 
 	// ========== 运行时刷新 ==========
-	RefreshWindow time.Duration // 提前刷新窗口（代理过期前多久开始补充），默认15分钟
-	RefreshBatch  int           // 运行时每批补充数量，默认20
+	RefreshWindow  time.Duration        // 提前刷新窗口（代理过期前多久开始补充），默认15分钟
+	RefreshBatch   int                  // 运行时每批补充数量，默认20
+	RefreshAllowed func(time.Time) bool // 自动刷新时间窗控制，返回false时跳过后台自动补充
 
 	// ========== 选择策略 ==========
 	SelectStrategy SelectStrategy // 代理选择策略，默认RoundRobin

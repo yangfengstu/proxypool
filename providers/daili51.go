@@ -39,7 +39,8 @@ type daili51Response struct {
 		ExpireTimeMillis string `json:"expireTimeMillis"` // 过期时间戳（毫秒，字符串格式）
 		IPAddress        string `json:"ipaddress"`        // 地区编码
 		ExpireTime       string `json:"expireTime"`       // 过期时间（格式：2026-07-03 14:26:26）
-		IP               string `json:"ip"`               // IP:端口
+		IP               string `json:"ip"`               // IP 或 IP:端口
+		Port             string `json:"port"`             // 端口，部分接口版本单独返回
 		ISP              string `json:"isp"`              // 运营商（移动、联通、电信）
 		IPAddressName    string `json:"IpAddressName"`    // 地区名称
 	} `json:"data"`
@@ -149,13 +150,10 @@ func (p *Daili51Provider) Fetch(ctx context.Context, count int) ([]proxypool.Pro
 	// 转换为标准Proxy结构
 	proxies := make([]proxypool.Proxy, 0, len(result.Data))
 	for _, item := range result.Data {
-		// 解析IP和端口（格式：221.229.220.22:38792）
-		parts := strings.Split(item.IP, ":")
-		if len(parts) != 2 {
+		host, port, ok := parseDaili51HostPort(item.IP, item.Port)
+		if !ok {
 			continue // 跳过格式错误的
 		}
-		host := parts[0]
-		port, _ := strconv.Atoi(parts[1])
 
 		// 解析过期时间（毫秒时间戳，字符串格式）
 		expiredMillis, _ := strconv.ParseInt(item.ExpireTimeMillis, 10, 64)
@@ -182,6 +180,38 @@ func (p *Daili51Provider) Fetch(ctx context.Context, count int) ([]proxypool.Pro
 	}
 
 	return proxies, nil
+}
+
+func parseDaili51HostPort(ipValue string, portValue string) (string, int, bool) {
+	host := strings.TrimSpace(ipValue)
+	portText := strings.TrimSpace(portValue)
+	if embeddedHost, embeddedPort, ok := splitDaili51IPPort(host); ok {
+		host = embeddedHost
+		if portText == "" {
+			portText = embeddedPort
+		}
+	}
+	if host == "" || portText == "" {
+		return "", 0, false
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil || port <= 0 || port > 65535 {
+		return "", 0, false
+	}
+	return host, port, true
+}
+
+func splitDaili51IPPort(value string) (string, string, bool) {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	host := strings.TrimSpace(parts[0])
+	port := strings.TrimSpace(parts[1])
+	if host == "" || port == "" {
+		return "", "", false
+	}
+	return host, port, true
 }
 
 // Name 实现Provider接口

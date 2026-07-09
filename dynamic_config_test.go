@@ -2,6 +2,7 @@ package proxypool
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -148,6 +149,110 @@ func TestDynamicConfig_DisableAutoRefresh(t *testing.T) {
 	err = pool.Refresh(ctx)
 	if err != nil {
 		t.Errorf("Manual refresh failed: %v", err)
+	}
+}
+
+func TestPruneSkipsRefreshWhenAutoRefreshDisabled(t *testing.T) {
+	provider := &countingProvider{fetches: make(chan int, 8)}
+	pool, err := New(Config{
+		Provider:        provider,
+		TargetSize:      2,
+		MonitorInterval: time.Hour,
+		PruneInterval:   time.Hour,
+		Logger:          &testLogger{t: t},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create pool: %v", err)
+	}
+	defer pool.Close()
+	drainFetches(provider.fetches)
+
+	autoRefresh := false
+	pool.UpdateConfig(UpdateConfig{AutoRefresh: &autoRefresh})
+	expireAllProxies(pool)
+	before := provider.calls.Load()
+
+	pool.pruneUnhealthyProxies()
+
+	select {
+	case <-provider.fetches:
+		t.Fatal("prune should not trigger refresh when AutoRefresh is disabled")
+	case <-time.After(100 * time.Millisecond):
+	}
+	if got := provider.calls.Load(); got != before {
+		t.Fatalf("fetch calls = %d, want %d", got, before)
+	}
+}
+
+func TestPruneRefreshesWhenAutoRefreshEnabled(t *testing.T) {
+	provider := &countingProvider{fetches: make(chan int, 8)}
+	pool, err := New(Config{
+		Provider:        provider,
+		TargetSize:      2,
+		MonitorInterval: time.Hour,
+		PruneInterval:   time.Hour,
+		Logger:          &testLogger{t: t},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create pool: %v", err)
+	}
+	defer pool.Close()
+	drainFetches(provider.fetches)
+
+	expireAllProxies(pool)
+	pool.pruneUnhealthyProxies()
+
+	select {
+	case <-provider.fetches:
+	case <-time.After(time.Second):
+		t.Fatal("prune should trigger refresh when AutoRefresh is enabled")
+	}
+}
+
+type countingProvider struct {
+	calls   atomic.Int32
+	fetches chan int
+}
+
+func (p *countingProvider) Fetch(ctx context.Context, count int) ([]Proxy, error) {
+	p.calls.Add(1)
+	select {
+	case p.fetches <- count:
+	default:
+	}
+	proxies := make([]Proxy, 0, count)
+	for i := 0; i < count; i++ {
+		proxies = append(proxies, Proxy{
+			Type:      ProxyTypeSOCKS5,
+			Host:      "127.0.0.1",
+			Port:      10000 + i,
+			ExpiredAt: time.Now().Add(time.Hour),
+		})
+	}
+	return proxies, nil
+}
+
+func (p *countingProvider) Name() string {
+	return "counting"
+}
+
+func expireAllProxies(pool *Pool) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	expiredAt := time.Now().Add(-time.Second)
+	for _, proxy := range pool.proxies {
+		proxy.ExpireAt = expiredAt
+		proxy.Proxy.ExpiredAt = expiredAt
+	}
+}
+
+func drainFetches(fetches <-chan int) {
+	for {
+		select {
+		case <-fetches:
+		default:
+			return
+		}
 	}
 }
 
