@@ -26,8 +26,8 @@ type DynamicConfig struct {
 	maxFailRate         atomic.Value // float64
 
 	// 预检配置
-	precheckEnabled    atomic.Bool
-	precheckMaxLatency atomic.Value // time.Duration
+	precheckEnabled     atomic.Bool
+	precheckMaxLatency  atomic.Value // time.Duration
 	precheckConcurrency atomic.Int32
 }
 
@@ -189,14 +189,6 @@ type CurrentConfig struct {
 // 便捷方法：获取动态配置值
 func (p *Pool) getTargetSize() int {
 	return int(p.dynamicConfig.targetSize.Load())
-}
-
-func (p *Pool) getLowWatermark() float64 {
-	return p.dynamicConfig.lowWatermark.Load().(float64)
-}
-
-func (p *Pool) getHighWatermark() float64 {
-	return p.dynamicConfig.highWatermark.Load().(float64)
 }
 
 func (p *Pool) isAutoRefreshEnabled() bool {

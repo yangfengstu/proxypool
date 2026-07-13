@@ -20,12 +20,13 @@ type Pool struct {
 	logger        Logger
 
 	// 代理客户端
-	mu         sync.RWMutex
-	proxies    []*proxyClient
-	nextIndex  int
-	closed     bool
-	closeChan  chan struct{}
-	closeOnce  sync.Once
+	mu        sync.RWMutex
+	proxies   []*proxyClient
+	nextIndex int
+	closed    bool
+	closeChan chan struct{}
+	closeOnce sync.Once
+	refreshMu sync.Mutex
 
 	// 统计
 	totalRequests atomic.Int64
@@ -98,8 +99,22 @@ func (p *Pool) initialize() error {
 		err     error
 	}
 
+	jobs := make(chan int)
 	results := make(chan result, batches)
 	ctx := context.Background()
+
+	workers := min(p.config.StartupConcurrency, batches)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for size := range jobs {
+				proxies, err := p.provider.Fetch(ctx, size)
+				results <- result{proxies: proxies, err: err}
+			}
+		}()
+	}
 
 	for i := 0; i < batches; i++ {
 		batchSize := p.config.StartupBatchSize
@@ -111,18 +126,20 @@ func (p *Pool) initialize() error {
 			}
 		}
 
-		go func(batchNo, size int) {
-			proxies, err := p.provider.Fetch(ctx, size)
-			results <- result{proxies: proxies, err: err}
-		}(i, batchSize)
+		jobs <- batchSize
 	}
+	close(jobs)
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
 
 	// 收集结果
 	allProxies := make([]Proxy, 0, p.config.TargetSize)
 	var errs []error
 
-	for i := 0; i < batches; i++ {
-		res := <-results
+	for res := range results {
 		if res.err != nil {
 			errs = append(errs, res.err)
 			p.errorf("Batch fetch error: %v", res.err)
@@ -152,6 +169,10 @@ func (p *Pool) Get() (*req.Client, *Proxy, error) {
 
 // GetWithContext 带上下文的获取
 func (p *Pool) GetWithContext(ctx context.Context) (*req.Client, *Proxy, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -164,7 +185,7 @@ func (p *Pool) GetWithContext(ctx context.Context) (*req.Client, *Proxy, error) 
 	now := time.Now()
 
 	for _, pc := range p.proxies {
-		if now.Before(pc.ExpireAt) && pc.consecutiveFails < p.getMaxConsecutiveFails() {
+		if pc.isAvailable(now, p.getMaxConsecutiveFails()) {
 			available = append(available, pc)
 		}
 	}
@@ -215,7 +236,7 @@ func (p *Pool) selectByHealthWeight(available []*proxyClient) *proxyClient {
 	totalWeight := 0.0
 	for _, pc := range available {
 		pc.updateHealthScore()
-		totalWeight += pc.healthScore
+		totalWeight += pc.getHealthScore()
 	}
 
 	if totalWeight == 0 {
@@ -228,7 +249,7 @@ func (p *Pool) selectByHealthWeight(available []*proxyClient) *proxyClient {
 	cumulative := 0.0
 
 	for _, pc := range available {
-		cumulative += pc.healthScore
+		cumulative += pc.getHealthScore()
 		if r <= cumulative {
 			return pc
 		}
@@ -389,7 +410,7 @@ func (p *Pool) Close() error {
 // addProxies 添加代理到池中
 func (p *Pool) addProxies(proxies []Proxy) {
 	// 预检（如果启用）
-	if p.config.PreCheck.Enabled {
+	if p.isPreCheckEnabled() {
 		proxies = p.preCheckProxies(proxies)
 	}
 
@@ -436,7 +457,7 @@ func (p *Pool) createReqClient(proxy Proxy) *req.Client {
 
 	// 其他配置
 	if p.config.DisableCompression {
-		client.DisableAutoReadResponse()
+		client.DisableCompression()
 	}
 
 	// 重定向
@@ -506,4 +527,18 @@ func (pc *proxyClient) updateHealthScore() {
 	}
 
 	pc.healthScore = score
+}
+
+func (pc *proxyClient) isAvailable(now time.Time, maxConsecutiveFails int) bool {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+
+	return now.Before(pc.ExpireAt) && pc.consecutiveFails < maxConsecutiveFails
+}
+
+func (pc *proxyClient) getHealthScore() float64 {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+
+	return pc.healthScore
 }

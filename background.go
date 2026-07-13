@@ -41,6 +41,9 @@ func (p *Pool) monitorTask() {
 
 // checkAndRefresh 检查水位线并刷新
 func (p *Pool) checkAndRefresh() {
+	p.refreshMu.Lock()
+	defer p.refreshMu.Unlock()
+
 	now := time.Now()
 	if p.config.RefreshAllowed != nil && !p.config.RefreshAllowed(now) {
 		p.logf("Refresh skipped: outside refresh window")
@@ -53,7 +56,7 @@ func (p *Pool) checkAndRefresh() {
 	expiringSoon := 0
 
 	for _, pc := range p.proxies {
-		if now.Before(pc.ExpireAt) && pc.consecutiveFails < p.getMaxConsecutiveFails() {
+		if pc.isAvailable(now, p.getMaxConsecutiveFails()) {
 			available++
 
 			// 统计即将过期的（在刷新窗口内）
@@ -86,7 +89,9 @@ func (p *Pool) checkAndRefresh() {
 			reason, needed, available, expiringSoon, targetSize)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		p.fetchAndAdd(ctx, needed)
+		if err := p.fetchAndAddLocked(ctx, needed); err != nil {
+			p.errorf("Refresh failed: %v", err)
+		}
 	}
 }
 
@@ -218,9 +223,15 @@ func (p *Pool) performHealthCheck() {
 
 // fetchAndAdd 拉取并添加代理
 func (p *Pool) fetchAndAdd(ctx context.Context, count int) error {
+	p.refreshMu.Lock()
+	defer p.refreshMu.Unlock()
+
+	return p.fetchAndAddLocked(ctx, count)
+}
+
+func (p *Pool) fetchAndAddLocked(ctx context.Context, count int) error {
 	proxies, err := p.provider.Fetch(ctx, count)
 	if err != nil {
-		p.errorf("Fetch proxies error: %v", err)
 		return err
 	}
 

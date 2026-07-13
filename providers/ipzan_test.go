@@ -2,8 +2,11 @@ package providers
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,6 +69,25 @@ func TestIPZanProvider_Fetch(t *testing.T) {
 		if proxy.ExpiredAt.Before(time.Now()) {
 			t.Errorf("Proxy %d: already expired", i+1)
 		}
+	}
+}
+
+func TestIPZanProviderRejectsInvalidPort(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"code":0,"data":{"list":[{"ip":"127.0.0.1","port":"invalid","expired":1735689600000}]}}`))
+	}))
+	defer server.Close()
+
+	provider, err := NewIPZanProvider(IPZanConfig{
+		ExtractURL: server.URL + "?format=json&protocol=3",
+	})
+	if err != nil {
+		t.Fatalf("NewIPZanProvider() error = %v", err)
+	}
+
+	_, err = provider.Fetch(context.Background(), 1)
+	if err == nil || !strings.Contains(err.Error(), "no valid proxies") {
+		t.Fatalf("Fetch() error = %v, want invalid proxy error", err)
 	}
 }
 

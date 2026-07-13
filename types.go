@@ -234,6 +234,8 @@ func (c *Config) applyDefaults() {
 	if c.PruneInterval <= 0 {
 		c.PruneInterval = 2 * time.Minute
 	}
+
+	c.PreCheck.applyDefaults()
 }
 
 // validate 验证配置

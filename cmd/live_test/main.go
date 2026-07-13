@@ -76,7 +76,7 @@ func main() {
 		fmt.Printf("    Password: %s\n", maskPassword(proxy.Password))
 		fmt.Printf("    Expired: %s (%.0f minutes left)\n",
 			proxy.ExpiredAt.Format("2006-01-02 15:04:05"),
-			proxy.ExpiredAt.Sub(time.Now()).Minutes())
+			time.Until(proxy.ExpiredAt).Minutes())
 		if proxy.Region != "" {
 			fmt.Printf("    Region: %s\n", proxy.Region)
 		}

@@ -156,7 +156,10 @@ func (p *Daili51Provider) Fetch(ctx context.Context, count int) ([]proxypool.Pro
 		}
 
 		// 解析过期时间（毫秒时间戳，字符串格式）
-		expiredMillis, _ := strconv.ParseInt(item.ExpireTimeMillis, 10, 64)
+		expiredMillis, err := strconv.ParseInt(item.ExpireTimeMillis, 10, 64)
+		if err != nil || expiredMillis <= 0 {
+			continue
+		}
 		expiredAt := time.UnixMilli(expiredMillis)
 
 		proxy := proxypool.Proxy{
@@ -177,6 +180,10 @@ func (p *Daili51Provider) Fetch(ctx context.Context, count int) ([]proxypool.Pro
 		}
 
 		proxies = append(proxies, proxy)
+	}
+
+	if len(proxies) == 0 {
+		return nil, fmt.Errorf("daili51: no valid proxies returned")
 	}
 
 	return proxies, nil

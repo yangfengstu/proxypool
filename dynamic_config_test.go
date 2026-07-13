@@ -88,7 +88,7 @@ func TestDynamicConfig_PreCheck(t *testing.T) {
 		Provider:   NewExampleProvider(),
 		TargetSize: 5,
 		PreCheck: PreCheckConfig{
-			Enabled:    true,
+			Enabled:    false,
 			MaxLatency: 3 * time.Second,
 		},
 		Logger: &testLogger{t: t},
@@ -99,7 +99,7 @@ func TestDynamicConfig_PreCheck(t *testing.T) {
 	defer pool.Close()
 
 	// 更新预检配置
-	enabled := false
+	enabled := true
 	maxLatency := 5 * time.Second
 	concurrency := 20
 
@@ -111,8 +111,8 @@ func TestDynamicConfig_PreCheck(t *testing.T) {
 
 	// 验证
 	cfg := pool.GetCurrentConfig()
-	if cfg.PreCheckEnabled {
-		t.Error("Expected PreCheckEnabled to be false")
+	if !cfg.PreCheckEnabled {
+		t.Error("Expected PreCheckEnabled to be true")
 	}
 	if cfg.PreCheckMaxLatency != 5*time.Second {
 		t.Errorf("Expected PreCheckMaxLatency 5s, got %v", cfg.PreCheckMaxLatency)

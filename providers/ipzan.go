@@ -16,8 +16,6 @@ import (
 // IPZanProvider IP赞代理提供商
 type IPZanProvider struct {
 	baseURL      string // 提取链接（必需）
-	username     string // 代理认证用户名（从API响应中获取）
-	password     string // 代理认证密码（从API响应中获取）
 	defaultCount int    // 默认拉取数量
 }
 
@@ -160,12 +158,6 @@ func (p *IPZanProvider) Fetch(ctx context.Context, count int) ([]proxypool.Proxy
 		return nil, fmt.Errorf("ipzan: no proxies returned")
 	}
 
-	// 从响应中提取认证信息（第一个代理的账号密码适用于所有代理）
-	if p.username == "" && len(result.Data.List) > 0 {
-		p.username = result.Data.List[0].Account
-		p.password = result.Data.List[0].Password
-	}
-
 	// 推断代理类型（从URL中的protocol参数）
 	proxyType := proxypool.ProxyTypeSOCKS5
 	parsedURL, _ = url.Parse(p.baseURL)
@@ -177,8 +169,10 @@ func (p *IPZanProvider) Fetch(ctx context.Context, count int) ([]proxypool.Proxy
 	proxies := make([]proxypool.Proxy, 0, len(result.Data.List))
 	for _, item := range result.Data.List {
 		// 解析端口
-		port := 0
-		fmt.Sscanf(item.Port, "%d", &port)
+		port, ok := parseIPZanPort(item.Port)
+		if !ok {
+			continue
+		}
 
 		// 转换过期时间（毫秒 -> time.Time）
 		expiredAt := time.UnixMilli(item.Expired)
@@ -200,7 +194,19 @@ func (p *IPZanProvider) Fetch(ctx context.Context, count int) ([]proxypool.Proxy
 		proxies = append(proxies, proxy)
 	}
 
+	if len(proxies) == 0 {
+		return nil, fmt.Errorf("ipzan: no valid proxies returned")
+	}
+
 	return proxies, nil
+}
+
+func parseIPZanPort(value string) (int, bool) {
+	port, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || port <= 0 || port > 65535 {
+		return 0, false
+	}
+	return port, true
 }
 
 // Name 实现Provider接口
