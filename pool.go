@@ -87,6 +87,11 @@ func New(cfg Config) (*Pool, error) {
 
 // initialize 初始化：并发快速拉取代理
 func (p *Pool) initialize() error {
+	if p.config.RefreshAllowed != nil && !p.config.RefreshAllowed(time.Now()) {
+		p.logf("Initial fetch skipped: outside refresh window")
+		return nil
+	}
+
 	startTime := time.Now()
 	p.logf("Initializing proxy pool: target=%d, batchSize=%d, concurrency=%d",
 		p.config.TargetSize, p.config.StartupBatchSize, p.config.StartupConcurrency)

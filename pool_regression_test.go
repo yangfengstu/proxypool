@@ -108,6 +108,39 @@ func TestPoolInitializeHonorsStartupConcurrency(t *testing.T) {
 	}
 }
 
+func TestPoolInitializeSkipsFetchOutsideRefreshWindow(t *testing.T) {
+	provider := &countingProvider{fetches: make(chan int, 1)}
+	pool, err := New(Config{
+		Provider:        provider,
+		TargetSize:      2,
+		RefreshAllowed:  func(time.Time) bool { return false },
+		MonitorInterval: time.Hour,
+		PruneInterval:   time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	defer pool.Close()
+
+	if got := provider.calls.Load(); got != 0 {
+		t.Fatalf("startup fetch calls = %d, want 0", got)
+	}
+	select {
+	case count := <-provider.fetches:
+		t.Fatalf("startup fetched %d proxies outside refresh window", count)
+	default:
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := pool.Refresh(ctx); err != nil {
+		t.Fatalf("manual Refresh() error = %v", err)
+	}
+	if got := provider.calls.Load(); got != 1 {
+		t.Fatalf("fetch calls after manual refresh = %d, want 1", got)
+	}
+}
+
 func TestPoolDynamicPreCheckEnabled(t *testing.T) {
 	proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "precheck failed", http.StatusBadGateway)

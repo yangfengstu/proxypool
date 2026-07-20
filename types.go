@@ -83,7 +83,7 @@ type Config struct {
 	// ========== 运行时刷新 ==========
 	RefreshWindow  time.Duration        // 提前刷新窗口（代理过期前多久开始补充），默认15分钟
 	RefreshBatch   int                  // 运行时每批补充数量，默认20
-	RefreshAllowed func(time.Time) bool // 自动刷新时间窗控制，返回false时跳过后台自动补充
+	RefreshAllowed func(time.Time) bool // 自动获取时间窗控制，返回false时跳过首次装池和后台自动补充；手动Refresh不受限
 
 	// ========== 选择策略 ==========
 	SelectStrategy SelectStrategy // 代理选择策略，默认RoundRobin
